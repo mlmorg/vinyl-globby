@@ -1,5 +1,9 @@
 # Changelog
 
+## `v1.4.0`
+
+Add globber.abort() function to abort globbing
+
 ## `v1.3.0`
 
 Upgrade Vinyl dependency
