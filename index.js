@@ -3,11 +3,10 @@ var asyncEach = require('async-each');
 var EventEmitter = require('events').EventEmitter;
 var extend = require('xtend');
 var glob = require('glob');
-var globParent = require('glob-parent');
+var glob2base = require('glob2base');
 var inherits = require('util').inherits;
 var isIgnored = require('glob/common').isIgnored;
 var once = require('once');
-var path = require('path');
 var Vinyl = require('vinyl');
 
 module.exports = VinylGlobby;
@@ -101,7 +100,7 @@ function globPattern(pattern, options, matchHandler, cb) {
     if (isIgnored(globber, filepath)) {
       return;
     }
-    var match = createVinyl(filepath, pattern, options);
+    var match = createVinyl(filepath, globber, options);
     matchHandler(match);
   }
 
@@ -116,16 +115,11 @@ function abortGlobbers(globbers) {
   });
 }
 
-function createVinyl(filepath, pattern, options) {
-  var base = globParent(pattern);
-  if (base === filepath) {
-    base = path.dirname(base);
-  }
-
+function createVinyl(filepath, globber, options) {
   return new Vinyl({
     cwd: options && options.cwd,
     path: filepath,
-    base: base
+    base: glob2base(globber)
   });
 }
 

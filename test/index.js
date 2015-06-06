@@ -9,37 +9,37 @@ var vinylGlobby = require('../');
 
 test('single glob', function t(assert) {
   var pattern = 'test/fixtures/**/*.js';
-  var bases = ['test/fixtures', 'test/fixtures'];
+  var bases = ['test/fixtures/', 'test/fixtures/'];
   runVinylGlobby(assert, pattern, 2, bases);
 });
 
 test('specific file', function t(assert) {
   var pattern = 'test/fixtures/bar.js';
-  var bases = ['test/fixtures'];
+  var bases = ['test/fixtures/'];
   runVinylGlobby(assert, pattern, 1, bases);
 });
 
 test('multiple globs', function t(assert) {
   var pattern = ['test/fixtures/*.js', 'test/fixtures/lib/*.js'];
-  var bases = ['test/fixtures', 'test/fixtures/lib'];
+  var bases = ['test/fixtures/', 'test/fixtures/lib/'];
   runVinylGlobby(assert, pattern, 2, bases);
 });
 
 test('multiple globs that match the same files', function t(assert) {
   var pattern = ['test/fixtures/*.js', 'test/fixtures/bar.js'];
-  var bases = ['test/fixtures'];
+  var bases = ['test/fixtures/'];
   runVinylGlobby(assert, pattern, 1, bases);
 });
 
 test('negative globs behind positive globs', function t(assert) {
   var pattern = ['test/fixtures/**/*.js', '!test/fixtures/bar.js'];
-  var bases = ['test/fixtures'];
+  var bases = ['test/fixtures/'];
   runVinylGlobby(assert, pattern, 1, bases);
 });
 
 test('negative globs before positive globs', function t(assert) {
   var pattern = ['!test/fixtures/bar.js', 'test/fixtures/**/*.js'];
-  var bases = ['test/fixtures', 'test/fixtures'];
+  var bases = ['test/fixtures/', 'test/fixtures/'];
   runVinylGlobby(assert, pattern, 2, bases);
 });
 
@@ -50,7 +50,7 @@ test('only negative globs', function t(assert) {
 
 test('with cwd option', function t(assert) {
   var pattern = '**/*.js';
-  var bases = ['.', '.'];
+  var bases = ['./', './'];
   var cwd = path.join(__dirname, 'fixtures');
   vinylGlobby(pattern, {cwd: cwd}, function onGlob(err, files) {
     assert.ifError(err,
