@@ -13,11 +13,18 @@ want to know the relative path to a file from its associated glob pattern.
 ```js
 var vinylGlobby = require("vinyl-globby");
 
+// Standard interface
 vinylGlobby(['**/*.js', '!foo.js'], function onGlob(err, files) {
   files[0].path; // Full file path
   files[0].base; // Base from start of glob
   files[0].relative; // Relative file path to base
 });
+
+// Emitter interface
+var globber = vinylGlobby('**/*.js');
+globber.on('match', onMatch);
+globber.on('error', onError);
+globber.on('end', onEnd);
 ```
 
 ## Installation

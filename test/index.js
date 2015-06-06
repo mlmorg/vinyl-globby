@@ -83,6 +83,46 @@ test('error globbing', function t(assert) {
   });
 });
 
+test('emitter, with success', function t(assert) {
+  var pattern = 'test/fixtures/**/*.js';
+  var matches = [];
+
+  var globber = vinylGlobby(pattern);
+  globber.on('match', function calledMatch(match) {
+    if (match) {
+      matches.push(match);
+    }
+  });
+  globber.on('end', function calledEnd(endMatches) {
+    assert.ok(matches.length === 2,
+      'calls the match event with match');
+
+    assert.ok(endMatches.length,
+      'calls the end event with matches');
+
+    assert.end();
+  });
+});
+
+test('emitter, with error', function t(assert) {
+  var pattern = 'test/fixtures/*.js';
+
+  var readdir = fs.readdir;
+  fs.readdir = function mockReaddir(filepath, cb) {
+    var err = new Error('some error');
+    process.nextTick(cb.bind(null, err));
+  };
+
+  var globber = vinylGlobby(pattern);
+  globber.on('error', function onError(err) {
+    assert.ok(err,
+      'should call error event with error');
+
+    fs.readdir = readdir;
+    assert.end();
+  });
+});
+
 function runVinylGlobby(assert, pattern, foundAmount, bases) {
   vinylGlobby(pattern, function onGlob(err, files) {
     assert.ifError(err,

@@ -1,70 +1,137 @@
 'use strict';
+var asyncEach = require('async-each');
+var EventEmitter = require('events').EventEmitter;
 var extend = require('xtend');
 var glob = require('glob');
 var globParent = require('glob-parent');
+var inherits = require('util').inherits;
+var isIgnored = require('glob/common').isIgnored;
+var once = require('once');
 var path = require('path');
-var uniqueBy = require('unique-by');
 var Vinyl = require('vinyl');
-var waterfall = require('run-parallel');
 
-module.exports = vinylGlobby;
+module.exports = VinylGlobby;
 
-function vinylGlobby(patterns, options, cb) {
+inherits(VinylGlobby, EventEmitter);
+
+function VinylGlobby(patterns, options, cb) {
+  var self = this;
+
   if (typeof options === 'function') {
     cb = options;
     options = {};
   }
 
-  var sortedPatterns = sortPatterns(patterns);
-  var positives = sortedPatterns.positives;
-  var negatives = sortedPatterns.negatives;
-
-  if (!positives.length) {
-    return cb(null, []);
+  if (!(this instanceof VinylGlobby)) {
+    return new VinylGlobby(patterns, options, cb);
   }
 
-  var fns = createVinylsFromPatternFns(positives, negatives, options);
+  if (typeof cb === 'function') {
+    setupCb(this, cb);
+  }
 
-  waterfall(fns, function onComplete(err, matches) {
+  var sortedPatterns = sortPatterns(patterns);
+  if (!sortedPatterns.positives.length) {
+    return self.emit('end', []);
+  }
+
+  globPatterns(sortedPatterns, options, matchHandler, cbHandler);
+
+  function matchHandler(match) {
+    self.emit('match', match);
+  }
+
+  function cbHandler(err, matches) {
     if (err) {
-      return cb(err);
+      return self.emit('error', err);
     }
+    self.emit('end', matches);
+  }
+}
 
-    matches = Array.prototype.concat.apply([], matches);
-    var uniques = uniqueBy(matches, 'path');
-    return cb(null, uniques);
+function setupCb(self, cb) {
+  cb = once(cb);
+  self.on('error', cb);
+  self.on('end', function callbackWithMatches(matches) {
+    cb(null, matches);
   });
 }
 
-function createVinylsFromPatternFns(positives, negatives, options) {
-  return positives.map(function createVinylsFromPatternFn(positive) {
+function globPatterns(patterns, options, matchHandler, cb) {
+  var positives = patterns.positives;
+  var negatives = patterns.negatives;
+  var globbers = [];
+  var matches = [];
+
+  asyncEach(positives, function startGlob(positive, _cb) {
     var patternOptions = extend(options);
     var ignoreOpt = patternOptions.ignore || [];
-
     var negativePatterns = negativesAfterIndex(negatives, positive.index);
     patternOptions.ignore = ignoreOpt.concat(negativePatterns);
 
-    return function getVinyls(cb) {
-      vinylsFromPattern(positive.pattern, patternOptions, cb);
-    };
-  });
-}
+    var globber = globPattern(positive.pattern, patternOptions, onMatch, _cb);
+    globbers.push(globber);
+  }, onComplete);
 
-function negativesAfterIndex(negatives, index) {
-  return negatives.filter(function keepNegativesAfterIndex(negative) {
-    return negative.index > index;
-  }).map(function getPattern(negative) {
-    return negative.pattern;
-  });
-}
+  function onMatch(match) {
+    if (exists(match, matches)) {
+      return;
+    }
+    matches.push(match);
+    matchHandler(match);
+  }
 
-function vinylsFromPattern(pattern, options, cb) {
-  glob(pattern, options, function handleGlob(err, filepaths) {
+  function onComplete(err) {
     if (err) {
+      abortGlobbers(globbers);
       return cb(err);
     }
+    cb(null, matches);
+  }
+}
 
-    cb(null, mapToVinyl(filepaths, pattern, options));
+function globPattern(pattern, options, matchHandler, cb) {
+  var globber = new glob.Glob(pattern, options);
+  globber.on('match', handleMatch);
+  globber.on('error', cb);
+  globber.on('end', handleEnd);
+  return globber;
+
+  function handleMatch(filepath) {
+    if (isIgnored(globber, filepath)) {
+      return;
+    }
+    var match = createVinyl(filepath, pattern, options);
+    matchHandler(match);
+  }
+
+  function handleEnd() {
+    cb(null);
+  }
+}
+
+function abortGlobbers(globbers) {
+  globbers.forEach(function abortGlobber(globber) {
+    globber.abort();
+  });
+}
+
+function createVinyl(filepath, pattern, options) {
+  var base = globParent(pattern);
+  if (base === filepath) {
+    base = path.dirname(base);
+  }
+
+  return new Vinyl({
+    cwd: options && options.cwd,
+    path: filepath,
+    base: base
+  });
+}
+
+function exists(match, matches) {
+  return matches.some(function checkIfExists(existingMatch) {
+    return match.path === existingMatch.path;
   });
 }
 
@@ -91,21 +158,10 @@ function sortPatterns(patterns) {
   };
 }
 
-function mapToVinyl(filepaths, pattern, options) {
-  return filepaths.map(function vinylMapper(filepath) {
-    return createVinyl(filepath, pattern, options);
-  });
-}
-
-function createVinyl(filepath, pattern, options) {
-  var base = globParent(pattern);
-  if (base === filepath) {
-    base = path.dirname(base);
-  }
-
-  return new Vinyl({
-    cwd: options && options.cwd,
-    path: filepath,
-    base: base
+function negativesAfterIndex(negatives, index) {
+  return negatives.filter(function keepNegativesAfterIndex(negative) {
+    return negative.index > index;
+  }).map(function getPattern(negative) {
+    return negative.pattern;
   });
 }
