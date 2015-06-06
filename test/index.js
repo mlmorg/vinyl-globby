@@ -2,8 +2,9 @@
 var fs = require('fs');
 var path = require('path');
 var process = require('process');
-var Vinyl = require('vinyl');
+var setTimeout = require('timers').setTimeout;
 var test = require('tape');
+var Vinyl = require('vinyl');
 
 var vinylGlobby = require('../');
 
@@ -120,6 +121,25 @@ test('emitter, with error', function t(assert) {
 
     fs.readdir = readdir;
     assert.end();
+  });
+});
+
+test('emitter, aborted', function t(assert) {
+  var pattern = 'test/fixtures/**/*.js';
+  var matches = [];
+
+  var globber = vinylGlobby(pattern);
+  globber.on('match', function calledMatch(match) {
+    matches.push(match);
+    globber.abort();
+  });
+  globber.on('abort', function onAbort() {
+    setTimeout(function onTimeout() {
+      assert.ok(matches.length === 1,
+        'stops globbing after abort');
+
+      assert.end();
+    }, 1);
   });
 });
 

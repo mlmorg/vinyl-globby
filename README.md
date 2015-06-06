@@ -25,6 +25,9 @@ var globber = vinylGlobby('**/*.js');
 globber.on('match', onMatch);
 globber.on('error', onError);
 globber.on('end', onEnd);
+
+// You can also abort the globbing, which will fire an "abort" event
+globber.abort();
 ```
 
 ## Installation

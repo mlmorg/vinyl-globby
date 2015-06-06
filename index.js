@@ -34,7 +34,8 @@ function VinylGlobby(patterns, options, cb) {
     return self.emit('end', []);
   }
 
-  globPatterns(sortedPatterns, options, matchHandler, cbHandler);
+  self.globbers = globPatterns(sortedPatterns, options, matchHandler,
+    cbHandler);
 
   function matchHandler(match) {
     self.emit('match', match);
@@ -47,6 +48,12 @@ function VinylGlobby(patterns, options, cb) {
     self.emit('end', matches);
   }
 }
+
+VinylGlobby.prototype.abort = function abort() {
+  var self = this;
+  abortGlobbers(self.globbers);
+  self.emit('abort');
+};
 
 function setupCb(self, cb) {
   cb = once(cb);
@@ -71,6 +78,8 @@ function globPatterns(patterns, options, matchHandler, cb) {
     var globber = globPattern(positive.pattern, patternOptions, onMatch, _cb);
     globbers.push(globber);
   }, onComplete);
+
+  return globbers;
 
   function onMatch(match) {
     if (exists(match, matches)) {
