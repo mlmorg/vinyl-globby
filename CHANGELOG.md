@@ -1,5 +1,9 @@
 # Changelog
 
+## `v1.3.0`
+
+Upgrade Vinyl dependency
+
 ## `v1.2.0`
 
 Remove the glob-parent node module and use glob2base instead.
